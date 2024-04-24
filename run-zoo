@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+if ! docker ps | grep zookeeper
+then
+  docker run -d --name zookeeper \
+    --restart always \
+    -p 2181:2181 \
+    zookeeper:3.9.1
+fi

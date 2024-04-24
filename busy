@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -ex
+
+docker run -it --rm -v .:/app --workdir /app $* busybox

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -e
+
+
+git config --global credential.helper "!f() { echo -e \"username=$(cat $HOME/secrets/gitlab-user)\npassword=$(cat $HOME/secrets/gitlab-token)\n\"; }; f"

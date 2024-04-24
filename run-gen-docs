@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -e
+
+docker run -it                                                                  \
+  -v .:/protos                                                                  \
+  --workdir /protos                                                             \
+  --user $(id -u):$(id -g)                                                      \
+  --entrypoint ""                                                               \
+  pseudomuto/protoc-gen-doc:latest \
+    bash -c "
+    protoc                                                                      \
+      --doc_out=docs                                                            \
+      --doc_opt=docs/markdown.tmpl,forge-data-products.md                       \
+      FORGE*.proto ;                                                            \
+    mkdir -p public ;                                                           \
+    protoc                                                                      \
+      --doc_out=docs                                                            \
+      --doc_opt=json,forge-data-products.json                                   \
+      FORGE*.proto
+    "
+#   artifactory.scitec.com/scitec-docker-upstream/pseudomuto/protoc-gen-doc:1.5.1 
+
+
+docker run -it                                                                  \
+  -v .:/app                                                                     \
+  --workdir /app                                                                \
+  --user $(id -u):$(id -g)                                                      \
+  --entrypoint ""                                                               \
+  artifactory.scitec.com/scitec-docker-upstream/pandoc/latex:3.1                \
+    pandoc docs/forge-data-products.md -o public/forge-data-products.pdf

@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -e
+
+#
+#  docker-list image-regex tag-regex
+#
+#  Find all the docker images that match the arguments
+#
+#     image-regex:  A regular expression for which images to list. Defaults to ".*"
+#     tag-regex:    A regular expression for which tags to list. Defaults to ".*"
+#
+#  Environment variables:
+#
+#     REGISTRY  The server name or ip
+#     API_KEY   The JFrog API key (X-JFrog-Art-Api)
+#     REPO_NAME The name of the docker registry repository
+#
+# curl -X GET https://myregistry:5000/v2/_catalog
+# curl -X GET https://myregistry:5000/v2/ubuntu/tags/list
+
+# set default values - environment variables override defaults
+REGISTRY=${REGISTRY:-artifactory.scitec.com}
+REPO_NAME=${REPO_NAME:-mdpap}
+
+# Get API key from normal locations - whatever that is
+if [[ -z "${API_KEY}" && -f "${HOME}/secrets/arti-token" ]]
+then
+  API_KEY=$(cat "${HOME}/secrets/arti-token")
+else
+  echo "Missing API_KEY"
+  exit 1
+fi
+
+# parse arguments - command line args override environment variables
+POSITIONAL_ARGS=()
+
+done=
+while [[ $# -gt 0 && -z "${done}" ]]
+do
+  case $1 in
+    -r|--registry)
+      REGISTRY="$2"
+      shift
+      ;;
+    -k|--key)
+      API_KEY="$2"
+      shift
+      ;;
+    --repo)
+      REPO_NAME="$2"
+      shift
+      ;;
+    --)
+      done=yes
+      ;;
+    -e)
+      dump_env=true
+      ;;
+    -*)
+      echo "Unknown option: $1"
+      exit 2
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      ;;
+  esac
+  shift # past argument
+done
+
+# set all the remaining args to new numbers
+set -- "${POSITIONAL_ARGS[@]}"
+
+if [[ $# > 2 ]]
+then
+  echo "Too many arguments"
+  exit 3
+fi
+
+# set the variables that will be used in the main portion of the script
+image_regex=${1:-.*}
+tag_regex=${2:-.*}
+
+creds=${API_KEY}
+registry=${REGISTRY}
+repo=${REPO_NAME}
+
+if [[ -z "${creds}" ]]
+then
+  echo "No credentials found. Please log into "${registry}" before using this script"
+  exit 1
+fi
+
+# dump environment if requested
+if [[ -n "${dump_env}" ]]
+then
+  echo "registry=${registry}"
+  echo "creds=${creds}"
+  echo "repo=${repo}"
+  echo "###"
+fi
+
+echo -en "Retrieving images from ${registry}:${repo}..."
+auth_header="X-JFrog-Art-Api: ${creds}"
+
+images=$(curl -sSL -H "${auth_header}" "https://${registry}/artifactory/api/docker/${repo}/v2/_catalog?n=5000" \
+         | jq -r '.repositories[]' | grep -E "${image_regex}" )
+echo "done"
+if [[ -z "${images}" ]]
+then
+    echo "ERROR: No matching images found for \"${image_regex}\""
+    exit 1
+fi
+
+if [[ -n "${images}" ]]
+then
+
+  for image in ${images}
+  do
+    echo "> ${image}"
+
+    if tags=$(curl -sSL -H "${auth_header}" \
+               https://${registry}/artifactory/api/docker/${repo}/v2/${image}/tags/list?n=5000 \
+           | jq -r '.tags[]' \
+           | grep -E "${tag_regex}")
+    then
+      echo -n "   "
+      for tag in ${tags}
+      do
+        echo -n " ${tag},"
+      done
+    else
+      echo "   No matching tags"
+    fi
+    echo
+  done
+else
+  echo "  No matching docker images"
+fi

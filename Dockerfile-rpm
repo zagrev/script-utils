@@ -1,0 +1,27 @@
+# build steve's rpm environment docker image
+FROM artifactory.scitec.com/mdpap/rpmbuilder:1.5
+
+ARG HOME
+ARG UID
+ARG GID
+ARG NAME
+
+ENTRYPOINT ["bash", "--login"]
+
+# Add a user and a group. We don't give the user the AD ids because they are >1B and that causes the docker image to 
+# balloon to over 361GB is size. Something about a sparse file becomig non-sparse in Docker? I have lost the 
+# reference. Anyway, so the hack here is to re-write the UID and GID after the fact, and keeps that file small.
+RUN groupadd devs \
+    && useradd --home-dir "${HOME}" "${NAME}" \
+    && sed -i -r -e "/${NAME}/ s/x:1000/x:${UID}/" /etc/passwd \
+    && sed -i -r -e "s/:1001:/:${GID}:/" /etc/passwd \
+    && sed -i -r -e "/${NAME}/ s/:1001:/:${GID}:/" /etc/group \
+    && usermod -aG wheel "${NAME}" \
+    && usermod -aG devs "${NAME}"
+
+RUN sed -i -r -e "s/^%/#%/" /etc/sudoers \
+    && echo '%wheel  ALL=(ALL)  NOPASSWD: ALL' >> /etc/sudoers
+
+WORKDIR  "${HOME}"
+USER     "${NAME}"
+

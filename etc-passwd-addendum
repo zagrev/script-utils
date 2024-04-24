@@ -1,0 +1,4 @@
+# users to be added to the development docker image
+ptate:x:1231804575:1231800513:Peter Tate:/home/ptate:/bin/bash
+sbetts:x:1231809872:1231800513:Steve Betts:/home/sbetts:/bin/bash
+wblum:x:1231809690:1231800513:Bill Blume:/home/ptate:/bin/bash

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+docker run \
+    --rm \
+    -e SONAR_HOST_URL="https://sonarqube-ent.scitec.com/" \
+    -e SONAR_TOKEN="$(<~/secrets/sonarqube-ent-token)" \
+    -v "${PWD}:/usr/src" \
+    sonarsource/sonar-scanner-cli
+#    -e SONAR_SCANNER_OPTS="-Dsonar.projectKey=mdpap_forge-data-playback_AYY4I96n9Gl6vx4etCWi" \

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+IMAGE=dev/srb-build
+CONTAINER_NAME=srb-dev
+
+if docker ps -a | grep "${CONTAINER_NAME}" > /dev/null
+then
+
+  docker exec -it \
+    --workdir "${PWD}" \
+    --user "$(id -un):$(id -un)" \
+    "${CONTAINER_NAME}" \
+    bash
+
+else
+
+  docker build \
+    -f "${SCRIPT_DIR}/Dockerfile-dev" \
+    --build-arg "HOME=${HOME}" \
+    --build-arg "NAME=$(id -un)" \
+    --build-arg "UID=$(id -u)" \
+    --build-arg "GID=$(id -g)" \
+    --secret id=artifactory_username,src=${HOME}/secrets/arti-user \
+    --secret id=artifactory_token,src=${HOME}/secrets/arti-token \
+    -t "${IMAGE}" "${SCRIPT_DIR}"
+
+  docker run -it --rm \
+    --name "${CONTAINER_NAME}" \
+    --hostname "${CONTAINER_NAME}" \
+    --workdir ${PWD} \
+    --user "$(id -un):$(id -un)" \
+    --group-add "wheel" \
+    --group-add "docker" \
+    --group-add "devs" \
+    -v "/home:/home" \
+    -v "/opt/scitec:/opt/scitec" \
+    -v "/var/run/docker.sock:/var/run/docker.sock" \
+    ${IMAGE}
+
+fi

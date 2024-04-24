@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -e
+
+script_dir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+
+docker_name="nginx-$(echo ${PWD} | tr '/' '_')"
+
+if docker rm -f "${docker_name}"
+then
+  echo "Removed old ${docker_name}"
+fi
+
+port=80
+port_limit=90
+
+while [[ $port -le $port_limit ]] \
+  && ! docker run -d --rm \
+  --name "${docker_name}" \
+  -p ${port}:80 \
+  -v .:/usr/share/nginx/html \
+  -v "${script_dir}/browse:/etc/nginx/conf.d/16-browse-on.conf" \
+  artifactory.scitec.com/scitec-docker-upstream/nginx:1.25.5 \
+  >& /dev/null
+do
+  (( port += 1 ))
+done
+
+echo "Running on port $port..."

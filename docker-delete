@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -e
+
+#
+#  docker-delete image-regex tag-regex
+#
+#  Delete all the docker images that match the arguments
+#
+#     image-regex:  A regular expression for which images to list. Defaults to none
+#     tag-regex:    A regular expression for which tags to list. Defaults to none
+#
+#  Environment variables:
+#
+#     REGISTRY  The server name or ip
+#     API_KEY   The JFrog API key (X-JFrog-Art-Api)
+#     REPO_NAME The name of the docker registry repository
+#
+COLOR_ERROR="\e[31m"
+COLOR_NORMAL="\e[0m"
+skip_errors=
+
+delete_image()
+{
+  if [[ -z "${cur_image}" ]]
+  then
+    echo "No current image to delete"
+    return
+  fi
+
+  local name
+  local ref
+
+  for tag in $*
+  do
+    local name="${cur_image}:${tag%,}"
+
+    # get the manifest reference number
+    if ref=$(curl -sSL -I -H "X-JFrog-Art-Api: ${creds}" \
+               -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+               https://${registry}/artifactory/api/docker/${repo}/v2/${cur_image}/manifests/${tag%,} \
+          | grep -i Docker-Content-Digest \
+          | sed -re 's/^[^:]+: ?//' \
+          | tr -d "\r" \
+         )
+    then
+      echo -en "Deleting ${name} ..."
+      if curl -fsSL -X DELETE \
+           -H "X-JFrog-Art-Api: ${creds}" \
+           "https://${registry}/artifactory/api/docker/${repo}/v2/${cur_image}/manifests/${ref}"
+      then
+        echo "done"
+      elif [[ -n "${skip_errors}" ]]
+      then
+        echo -e "${COLOR_ERROR}FAILED${COLOR_NORMAL}"
+      else
+        exit 2
+      fi
+    fi
+  done
+}
+
+# run the search separately
+script_dir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+
+args=()
+while [[ $# > 0 ]]
+do
+  case "$1" in
+    -k|--skip-errors)
+      skip_errors=true
+      ;;
+    -*)
+      echo Invalid option: $1
+      ;;
+    *)
+      args+=("$1")
+      ;;
+  esac
+  shift
+done
+set -- "${args[@]}"
+
+echo -en "Retrieving images to delete ..."
+matches=$(${script_dir}/docker-list -e $* | tail -n +2)
+echo "done"
+
+# wrapping in a sub-shell here allows multiple read loops to share the input
+(
+  # first read the environment from the search (get server, repo, and key)
+  line=
+  while [[ "###" != "${line}" ]]
+  do
+    read -r line
+    eval "${line}"
+  done
+    
+  # now reading alternating image/versions lines
+  while read -r first rest
+  do
+    case ${first} in
+      ">")
+        cur_image=${rest}
+        ;;
+      "No")
+        continue
+        ;;
+      *)
+        delete_image "${first} ${rest}"
+        ;;
+    esac
+  done
+) <<< "${matches}"
+

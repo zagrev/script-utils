@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -e
+
+# time a command periodically and record the command duration
+
+command="git push"
+command="ls"
+interval=10
+
+while [[ $# -gt 1 ]]
+do
+  case $1 in
+    -i|--interval)
+      interval=$2
+      shift
+      ;;
+    -c|--command)
+      command=$2
+      shift
+      ;;
+    *)
+      echo "Unrecogized argument: $1"
+      ;;
+  esac
+  shift
+done
+
+while sleep ${interval}
+do
+
+  cmd_time=$(date)
+  output=$( (/usr/bin/time -p ${command}) 2>&1)
+  real_duration=$(echo "${output}" | grep "^real" | awk '{print $2}')
+
+  echo "${cmd_time},\"${command}\",${real_duration}"
+done
