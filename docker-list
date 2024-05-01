@@ -23,12 +23,15 @@ REGISTRY=${REGISTRY:-artifactory.scitec.com}
 REPO_NAME=${REPO_NAME:-mdpap}
 
 # Get API key from normal locations - whatever that is
-if [[ -z "${API_KEY}" && -f "${HOME}/secrets/arti-token" ]]
+if [[ -z "${API_KEY}" ]]
 then
-  API_KEY=$(cat "${HOME}/secrets/arti-token")
-else
-  echo "Missing API_KEY"
-  exit 1
+  if [[ -f "${HOME}/secrets/arti-token" ]]
+  then
+    API_KEY=$(cat "${HOME}/secrets/arti-token")
+  else
+    echo "Missing API_KEY"
+    exit 1
+  fi
 fi
 
 # parse arguments - command line args override environment variables
@@ -51,20 +54,20 @@ do
       shift
       ;;
     --)
-      done=yes
-      ;;
-    -e)
-      dump_env=true
-      ;;
-    -*)
-      echo "Unknown option: $1"
-      exit 2
-      ;;
-    *)
-      POSITIONAL_ARGS+=("$1") # save positional arg
-      ;;
-  esac
-  shift # past argument
+    done=yes
+    ;;
+  -e)
+    dump_env=true
+    ;;
+  -*)
+    echo "Unknown option: $1"
+    exit 2
+    ;;
+  *)
+    POSITIONAL_ARGS+=("$1") # save positional arg
+    ;;
+esac
+shift # past argument
 done
 
 # set all the remaining args to new numbers
@@ -103,12 +106,12 @@ echo -en "Retrieving images from ${registry}:${repo}..."
 auth_header="X-JFrog-Art-Api: ${creds}"
 
 images=$(curl -sSL -H "${auth_header}" "https://${registry}/artifactory/api/docker/${repo}/v2/_catalog?n=5000" \
-         | jq -r '.repositories[]' | grep -E "${image_regex}" )
+  | jq -r '.repositories[]' | grep -E "${image_regex}" )
 echo "done"
 if [[ -z "${images}" ]]
 then
-    echo "ERROR: No matching images found for \"${image_regex}\""
-    exit 1
+  echo "ERROR: No matching images found for \"${image_regex}\""
+  exit 1
 fi
 
 if [[ -n "${images}" ]]
@@ -119,20 +122,20 @@ then
     echo "> ${image}"
 
     if tags=$(curl -sSL -H "${auth_header}" \
-               https://${registry}/artifactory/api/docker/${repo}/v2/${image}/tags/list?n=5000 \
-           | jq -r '.tags[]' \
-           | grep -E "${tag_regex}")
-    then
-      echo -n "   "
-      for tag in ${tags}
-      do
-        echo -n " ${tag},"
-      done
-    else
-      echo "   No matching tags"
-    fi
-    echo
-  done
+      https://${registry}/artifactory/api/docker/${repo}/v2/${image}/tags/list?n=5000 \
+      | jq -r '.tags[]' \
+      | grep -E "${tag_regex}")
+  then
+    echo -n "   "
+    for tag in ${tags}
+    do
+      echo -n " ${tag},"
+    done
+  else
+    echo "   No matching tags"
+  fi
+  echo
+done
 else
   echo "  No matching docker images"
 fi
