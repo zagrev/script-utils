@@ -8,7 +8,7 @@ ARG NAME
 
 ENTRYPOINT ["bash", "--login"]
 
-RUN dnf install -y vim jq htop sudo \
+RUN dnf install -y vim jq htop sudo ShellCheck \
   && dnf remove -y podman \
   && groupadd docker -g 972 \
   && dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo \

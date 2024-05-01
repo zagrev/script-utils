@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-SCRIPT_DIR=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 PREFIX=${PREFIX:-srb}
 IMAGE=dev/${PREFIX}-build
 CONTAINER_NAME=${PREFIX}-dev
@@ -23,14 +23,14 @@ else
     --build-arg "NAME=$(id -un)" \
     --build-arg "UID=$(id -u)" \
     --build-arg "GID=$(id -g)" \
-    --secret id=artifactory_username,src=${HOME}/secrets/arti-user \
-    --secret id=artifactory_token,src=${HOME}/secrets/arti-token \
+    --secret "id=artifactory_username,src=${HOME}/secrets/arti-user" \
+    --secret "id=artifactory_token,src=${HOME}/secrets/arti-token" \
     -t "${IMAGE}" "${SCRIPT_DIR}"
 
   docker run -it --rm \
     --name "${CONTAINER_NAME}" \
     --hostname "${CONTAINER_NAME}" \
-    --workdir ${PWD} \
+    --workdir "${PWD}" \
     --user "$(id -un):$(id -un)" \
     --group-add "wheel" \
     --group-add "docker" \
