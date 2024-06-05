@@ -18,6 +18,12 @@ set -e
 # curl -X GET https://myregistry:5000/v2/_catalog
 # curl -X GET https://myregistry:5000/v2/ubuntu/tags/list
 
+error()
+{
+  echo ERROR "$@"
+}
+trap 'error ${LINENO} ${FUNCNAME-main context} $?' ERR
+
 # set default values - environment variables override defaults
 REGISTRY=${REGISTRY:-artifactory.scitec.com}
 REPO_NAME=${REPO_NAME:-mdpap}
@@ -105,8 +111,10 @@ fi
 echo -en "Retrieving images from ${registry}:${repo}..."
 auth_header="X-JFrog-Art-Api: ${creds}"
 
-images=$(curl -sSL -H "${auth_header}" "https://${registry}/artifactory/api/docker/${repo}/v2/_catalog?n=5000" \
-  | jq -r '.repositories[]' | grep -E "${image_regex}" )
+registry_info=$(curl -sSL -H "${auth_header}" "https://${registry}/artifactory/api/docker/${repo}/v2/_catalog?n=5000")
+image_list=$(jq -r '.repositories[]' <<< "${registry_info}")
+images=$(grep --ignore-case --extended-regexp "${image_regex}" <<< "${image_list}")
+
 echo "done"
 if [[ -z "${images}" ]]
 then

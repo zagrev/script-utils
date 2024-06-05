@@ -8,7 +8,14 @@ ARG NAME
 
 ENTRYPOINT ["bash", "--login"]
 
-RUN dnf install -y vim jq htop sudo ShellCheck \
+# mount subscription
+RUN --mount=type=secret,id=artifactory_username \
+    --mount=type=secret,id=artifactory_token \
+  dnf config-manager --add-repo \
+    "https://$(cat /run/secrets/artifactory_username):$(cat /run/secrets/artifactory_token)@artifactory.scitec.com/artifactory/mdpap-virtual-rpm" \
+  && dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+
+RUN dnf install -y vim jq htop sudo ShellCheck nano \
   && dnf remove -y podman \
   && groupadd docker -g 972 \
   && dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo \
@@ -16,6 +23,10 @@ RUN dnf install -y vim jq htop sudo ShellCheck \
   && dnf clean all \
   && rm -rf /var/cache/yum \
   && rm -rf /var/cache/dnf 
+
+# make the compiler work
+RUN ln -s /usr/local/gcc-trunk/bin/gcc /usr/bin/cc \
+  && ln -s /usr/local/gcc-trunk/bin/g++ /usr/bin/c++
 
 # Add a user and a group. We don't give the user the AD ids because they are >1B and that causes the docker image to 
 # balloon to over 361GB is size. Something about a sparse file becomig non-sparse in Docker? I have lost the 
