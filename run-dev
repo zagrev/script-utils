@@ -94,7 +94,8 @@ runContainer() {
       -v "/home:/home" \
       -v "/opt/scitec:/opt/scitec" \
       -v "/var/run/docker.sock:/var/run/docker.sock" \
-      "${IMAGE}"
+      --entrypoint="" \
+      "${IMAGE}" /usr/bin/bash -c 'tail -f /dev/null'
 
       execIntoContainer
   fi
@@ -111,6 +112,7 @@ then
   
     echo "Refreshing Containers"
     docker stop "$CONTAINER_NAME" > /dev/null
+    docker rm "$CONTAINER_NAME" > /dev/null
     buildImage
     runContainer
 
