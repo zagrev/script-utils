@@ -6,7 +6,7 @@ PREFIX=${PREFIX:-srb}
 IMAGE=dev/${PREFIX}-build
 CONTAINER_NAME=${PREFIX}-dev
 
-if docker ps -a | grep "${CONTAINER_NAME}" > /dev/null
+if docker ps --filter "name=${CONTAINER_NAME}" --format '{{.Names}}' -a | grep "${CONTAINER_NAME}" > /dev/null
 then
 
   docker exec -it \
@@ -27,7 +27,7 @@ else
     --secret "id=artifactory_token,src=${HOME}/secrets/arti-token" \
     -t "${IMAGE}" "${SCRIPT_DIR}"
 
-  docker run -it --rm \
+  docker run -d --rm \
     --name "${CONTAINER_NAME}" \
     --hostname "${CONTAINER_NAME}" \
     --workdir "${PWD}" \
@@ -39,5 +39,11 @@ else
     -v "/opt/scitec:/opt/scitec" \
     -v "/var/run/docker.sock:/var/run/docker.sock" \
     ${IMAGE}
+
+  docker exec -it \
+    --workdir "${PWD}" \
+    --user "$(id -un):$(id -un)" \
+    "${CONTAINER_NAME}" \
+    bash
 
 fi
