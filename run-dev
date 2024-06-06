@@ -6,17 +6,50 @@ PREFIX=${PREFIX:-srb}
 IMAGE=dev/${PREFIX}-build
 CONTAINER_NAME=${PREFIX}-dev
 
-if docker ps --filter "name=${CONTAINER_NAME}" --format '{{.Names}}' -a | grep "${CONTAINER_NAME}" > /dev/null
-then
+# Variables Set via commandline flags ( -d,--daemon and -r,--refresh)
+INTERACTIVE_MODE=true
+REFRESH_CONTAINERS=false
 
+while getopts ":d-:r-:" opt; do
+  case $opt in
+    d)
+      INTERACTIVE_MODE=false
+      ;;
+    r)
+      REFRESH_CONTAINERS=true
+      ;;
+    -)
+      case "${OPTARG}" in
+        daemon)
+          INTERACTIVE_MODE=false
+          ;;
+        refresh)
+          REFRESH_CONTAINERS=true
+          ;;
+      esac
+      ;;
+    *)
+        INTERACTIVE_MODE=false
+        ;;
+  esac
+done
+
+# Helper Function: Checks if an environment variable is true
+is_true() {
+  [[ -n "$1"  &&  "$1" != "false" &&  "$1" != "0" ]]
+}
+
+execIntoContainer() {
+  echo "Attaching to Container: ${CONTAINER_NAME}"
   docker exec -it \
     --workdir "${PWD}" \
     --user "$(id -un):$(id -un)" \
     "${CONTAINER_NAME}" \
     bash
+}
 
-else
-
+buildImage() {
+  echo "Building Docker Image"
   docker build \
     -f "${SCRIPT_DIR}/Dockerfile-dev" \
     --build-arg "HOME=${HOME}" \
@@ -26,24 +59,70 @@ else
     --secret "id=artifactory_username,src=${HOME}/secrets/arti-user" \
     --secret "id=artifactory_token,src=${HOME}/secrets/arti-token" \
     -t "${IMAGE}" "${SCRIPT_DIR}"
+}
 
-  docker run -d --rm \
-    --name "${CONTAINER_NAME}" \
-    --hostname "${CONTAINER_NAME}" \
-    --workdir "${PWD}" \
-    --user "$(id -un):$(id -un)" \
-    --group-add "wheel" \
-    --group-add "docker" \
-    --group-add "devs" \
-    -v "/home:/home" \
-    -v "/opt/scitec:/opt/scitec" \
-    -v "/var/run/docker.sock:/var/run/docker.sock" \
-    ${IMAGE}
+# Run a container interactively or, if as a daemon, attaches to the container
+# with a docker exec session
+runContainer() {
 
-  docker exec -it \
-    --workdir "${PWD}" \
-    --user "$(id -un):$(id -un)" \
-    "${CONTAINER_NAME}" \
-    bash
+  if is_true $INTERACTIVE_MODE; then
 
+    echo "Running Container in Interactive Mode"  
+    docker run -it --rm \
+      --name "${CONTAINER_NAME}" \
+      --hostname "${CONTAINER_NAME}" \
+      --workdir "${PWD}" \
+      --user "$(id -un):$(id -un)" \
+      --group-add "wheel" \
+      --group-add "docker" \
+      --group-add "devs" \
+      -v "/home:/home" \
+      -v "/opt/scitec:/opt/scitec" \
+      -v "/var/run/docker.sock:/var/run/docker.sock" \
+      "${IMAGE}"
+  else
+
+    echo "Running Container in Daemon Mode"
+    docker run -d --rm \
+      --name "${CONTAINER_NAME}" \
+      --hostname "${CONTAINER_NAME}" \
+      --workdir "${PWD}" \
+      --user "$(id -un):$(id -un)" \
+      --group-add "wheel" \
+      --group-add "docker" \
+      --group-add "devs" \
+      -v "/home:/home" \
+      -v "/opt/scitec:/opt/scitec" \
+      -v "/var/run/docker.sock:/var/run/docker.sock" \
+      "${IMAGE}"
+
+      execIntoContainer
+  fi
+}
+
+# if container already exists
+if docker ps --filter "name=${CONTAINER_NAME}" --format '{{.Names}}' -a | grep "${CONTAINER_NAME}" > /dev/null
+then
+
+  echo "Container ${CONTAINER_NAME} already exists"
+
+  # if we want to refresh containers with latest images
+  if is_true $REFRESH_CONTAINERS; then
+  
+    echo "Refreshing Containers"
+    docker stop "$CONTAINER_NAME" > /dev/null
+    buildImage
+    runContainer
+
+  # if we simply want to exec into existing container
+  else
+    echo "Reusing existing container"
+    execIntoContainer
+  fi
+
+# if container doesn't exist
+else
+  echo "Container ${CONTAINER_NAME} does not exist"
+  buildImage
+  runContainer
 fi
