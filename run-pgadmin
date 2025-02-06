@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+script_dir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+
+docker_name=pgadmin
+port=8081
+
+if docker rm -f "${docker_name}" >& /dev/null
+then
+  echo "Removed old ${docker_name}"
+fi
+
+docker run -d \
+  --name "${docker_name}" \
+  -p ${port}:80 \
+  -e PGADMIN_DEFAULT_EMAIL=bob@bob.com \
+  -e PGADMIN_DEFAULT_PASSWORD=bob \
+  -v $HOME/pgadmin:/var/lib/pgadmin \
+  artifactory.scitec.com/docker-virtual/dpage/pgadmin4 >&/dev/null
+
+echo "Running ${docker_name} on port $port..."
+
+

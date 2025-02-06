@@ -9,4 +9,4 @@ docker_name=postgres_${port}
 ip=$(docker inspect --format='{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${docker_name}")
 
 set -x
-docker run -it --rm artifactory.scitec.com/scitec-docker-upstream/postgres:16.4 psql -h "${ip}" -U postgres
+docker run -it --rm artifactory.scitec.com/scitec-docker-upstream/postgres:16.4 psql -h "${ip}" -U postgres progtrack
