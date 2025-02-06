@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+
+script_dir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+
+port=${1:-5432}
+docker_name=postgres_${port}
+
+ip=$(docker inspect --format='{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${docker_name}")
+
+set -x
+docker run -it --rm artifactory.scitec.com/scitec-docker-upstream/postgres:16.4 psql -h "${ip}" -U postgres progtrack

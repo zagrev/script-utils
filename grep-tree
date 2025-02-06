@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -e
+
+to_match=
+include_path=.
+debug=0
+filename_glob=*.proto
+
+function process_args
+{
+  while [[ "$#" > 0 ]]
+  do
+    case $1 in
+      --match|-m)
+        to_match=$2
+        shift
+        ;;
+      --include-dir|-I)
+        include_path="${include_path}:$2"
+        shift
+        ;;
+      --debug|-d)
+        debug++
+        ;;
+      --filename-glob)
+        filename_glob="$2"
+        shift
+        ;;
+      --match=*|-m=*)
+        to_match=${1##*=}
+        ;;
+      *)
+        echo -e "Error: unknown parameter $1"
+        exit 1
+    esac
+    shift
+  done
+
+  if [[ -z "${to_match}" ]]
+  then
+    echo "No string to match found on command line. Use the --match option"
+    exit 2
+  fi
+
+  ## DEBUG
+  echo "to_match      = ${to_match}"
+  echo "include_path  = ${include_path}"
+  echo "debug         = ${debug}"
+  echo "filename_glob = ${filename_glob}"
+  echo
+}
+
+function find_file
+{
+  local file_to_find=$1
+  local path=
+
+  while read -r dir
+  do
+    path="${dir%/}/${file_to_find}"
+
+    if [[ -f "${path}" ]]
+    then 
+      break
+    else
+      path=
+    fi
+
+  done <<< $(echo "${include_path}" | tr ':' '\n')
+
+  echo "${path}"
+}
+
+function show_matches
+{
+  local indent=$1
+  local file=$2
+  local matches
+  local import_file
+
+  local path=$(find_file "${file}")
+  if [[ "${file}" == ${filename_glob} && "${file}" != *google* ]]
+  then
+    # list this file
+    echo -e "${indent}imports ${path}"
+
+    find_imports "${indent}  " "${path}"
+  fi
+}
+
+function find_imports
+{
+  # find more matches
+  local import_file
+  local matches=$(grep "${to_match}" "${path}")
+
+  while read -r m
+  do
+    import_file=$(echo "${m}" | sed -r -e 's/^[^"]+"//g' -e 's/".*$//')
+
+    show_matches "${indent}  " "${import_file}"
+  done <<< "${matches}"
+}
+
+function main
+{
+  process_args "$@"
+
+  local files=$(grep -rl "${to_match}")
+  local current_file
+
+  for current_file in ${files}
+  do
+    if [[ "${current_file}" == ${filename_glob} && "${current_file}" != *google* ]]
+    then
+      echo -e "File ${current_file}"
+      show_matches "  " ${current_file}
+    fi
+  done
+}
+
+main $@

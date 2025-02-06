@@ -1,5 +1,6 @@
 # build steve's dev environment docker image
 FROM artifactory.scitec.com/mdpap/pipeline-rhel-8-tier-1m
+#FROM artifactory.scitec.com/mdpap/base-images/tier-2/mdpap-cicd
 
 ARG HOME
 ARG UID
@@ -15,7 +16,7 @@ RUN --mount=type=secret,id=artifactory_username \
     "https://$(cat /run/secrets/artifactory_username):$(cat /run/secrets/artifactory_token)@artifactory.scitec.com/artifactory/mdpap-virtual-rpm" \
   && dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 
-RUN dnf install -y vim jq htop sudo ShellCheck nano \
+RUN dnf install -y vim jq htop sudo ShellCheck nano bash-completion java-latest-openjdk-devel maven \
   && dnf remove -y podman \
   && groupadd docker -g 972 \
   && dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo \

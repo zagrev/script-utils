@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -e
+
+script_dir=$(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+
+docker_name=postgres
+port=5432
+port_limit=9000
+
+if docker rm -f "${docker_name}_${port}" >& /dev/null
+then
+  echo "Removed old ${docker_name}_${port}"
+fi
+
+
+docker run -d \
+  --name "${docker_name}_${port}" \
+  -p ${port}:5432 \
+  -e ENCODING=UTF8 \
+  -e LC_COLLATE=en_US.UTF-8 \
+  -e LC_CTYPE=en_US.UTF-8 \
+  -e POSTGRES_PASSWORD=pgpwd \
+  -v $HOME/db_${port}:/var/lib/postgresql/data \
+  -v $HOME/db_init:/docker-entrypoint-initdb.d \
+  artifactory.scitec.com/scitec-docker-upstream/postgres:16.4 >&/dev/null
+
+echo "Running ${docker_name} on port $port..."

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -ex
 
 #
 #  docker-list image-regex tag-regex
@@ -113,7 +113,7 @@ auth_header="X-JFrog-Art-Api: ${creds}"
 
 registry_info=$(curl -sSL -H "${auth_header}" "https://${registry}/artifactory/api/docker/${repo}/v2/_catalog?n=5000")
 image_list=$(jq -r '.repositories[]' <<< "${registry_info}")
-images=$(grep --ignore-case --extended-regexp "${image_regex}" <<< "${image_list}")
+images=$(grep --quiet --ignore-case --extended-regexp "${image_regex}" <<< "${image_list}")
 
 echo "done"
 if [[ -z "${images}" ]]
