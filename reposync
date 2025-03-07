@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+sudo dnf reposync -a x86_64 -a noarch --download-metadata --newest \
+  |&  tee reposync.log \
+  |   grep -v '[SKIPPED]'
+
