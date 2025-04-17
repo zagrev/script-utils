@@ -1,6 +1,5 @@
 # build steve's dev environment docker image
-FROM artifactory.scitec.com/mdpap/pipeline-rhel-8-tier-1m
-#FROM artifactory.scitec.com/mdpap/base-images/tier-2/mdpap-cicd
+FROM artifactory.scitec.com/mdpap/base-images/tier-1l/app-builder:v1.2.0
 
 ARG HOME
 ARG UID
@@ -12,11 +11,27 @@ ENTRYPOINT ["bash", "--login"]
 # mount subscription
 RUN --mount=type=secret,id=artifactory_username \
     --mount=type=secret,id=artifactory_token \
-  dnf config-manager --add-repo \
-    "https://$(cat /run/secrets/artifactory_username):$(cat /run/secrets/artifactory_token)@artifactory.scitec.com/artifactory/mdpap-virtual-rpm" \
-  && dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-
-RUN dnf install -y vim jq htop sudo ShellCheck nano bash-completion java-latest-openjdk-devel maven \
+    rm -rf /etc/yum.repos.d/_*repo \
+    && echo -e "[mdpap-virtual-rpm] \n\
+name=MDPAP RPM \n\
+baseurl=https://artifactory.scitec.com/artifactory/mdpap-virtual-rpm \n\
+username=$(cat /run/secrets/artifactory_username) \n\
+password=$(cat /run/secrets/artifactory_token) \n\
+enabled=1 \n\
+" > /etc/yum.repos.d/mdpap-virtual-rpm.repo \
+  && dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm \
+  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+      | tee /etc/yum.repos.d/nvidia-container-toolkit.repo \
+  && dnf makecache -y \
+  && dnf install -y vim jq htop sudo ShellCheck nano bash-completion \
+      java-latest-openjdk-devel maven java-11-openjdk-devel java-17-openjdk-devel \
+      openldap-clients \
+      nvidia-container-toolkit \
+      bind-utils iputils \
+  && echo "install YQ" \
+  && wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq \
+  && chmod +x /usr/bin/yq \
+  && echo "Install Docker" \
   && dnf remove -y podman \
   && groupadd docker -g 972 \
   && dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo \
@@ -25,9 +40,9 @@ RUN dnf install -y vim jq htop sudo ShellCheck nano bash-completion java-latest-
   && rm -rf /var/cache/yum \
   && rm -rf /var/cache/dnf 
 
-# make the compiler work
-RUN ln -s /usr/local/gcc-trunk/bin/gcc /usr/bin/cc \
-  && ln -s /usr/local/gcc-trunk/bin/g++ /usr/bin/c++
+RUN true \
+  && alternatives --set java  java-latest-openjdk.x86_64 \
+  && alternatives --set javac java-latest-openjdk.x86_64
 
 # Add a user and a group. We don't give the user the AD ids because they are >1B and that causes the docker image to 
 # balloon to over 361GB is size. Something about a sparse file becomig non-sparse in Docker? I have lost the 

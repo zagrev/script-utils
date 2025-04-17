@@ -5,7 +5,7 @@ GIT_SERVER_URL=${GIT_SERVER_URL:-https://gitlab.scitec.com}
 GIT_GROUP=${GIT_GROUP:-MDPAP}
 GIT_PW=${GIT_PW:-$(<~/secrets/gitlab-token)}
 
-DEST_DIR=${DEST_DIR:-~/scitec}
+DEST_DIR=${DEST_DIR:-.}
 PROJECT_MATCH_REGEX="${PROJECT_MATCH_REGEX:-*}"
 SKIP_EXISTING=N
 
