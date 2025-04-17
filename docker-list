@@ -2,7 +2,7 @@
 set -ex
 
 #
-#  docker-list image-regex tag-regex
+#  docker-list [ image-regex [ tag-regex ] ]
 #
 #  Find all the docker images that match the arguments
 #
@@ -11,9 +11,9 @@ set -ex
 #
 #  Environment variables:
 #
-#     REGISTRY  The server name or ip
-#     API_KEY   The JFrog API key (X-JFrog-Art-Api)
-#     REPO_NAME The name of the docker registry repository
+#     API_KEY   The JFrog API key (X-JFrog-Art-Api). Defaults to the contents of $HOME/secretes/arti-token.
+#     REGISTRY  The server name or ip. Defaults to artifactory.scitec.com
+#     REPO_NAME The name of the docker registry repository. Defaults to 'mdpap'.
 #
 # curl -X GET https://myregistry:5000/v2/_catalog
 # curl -X GET https://myregistry:5000/v2/ubuntu/tags/list
@@ -22,7 +22,7 @@ error()
 {
   echo ERROR "$@"
 }
-trap 'error ${LINENO} ${FUNCNAME-main context} $?' ERR
+#trap 'error ${LINENO} ${FUNCNAME-main context} $?' ERR
 
 # set default values - environment variables override defaults
 REGISTRY=${REGISTRY:-artifactory.scitec.com}
@@ -77,6 +77,7 @@ shift # past argument
 done
 
 # set all the remaining args to new numbers
+POSITIONAL_ARGS+=("$@") # save left over args
 set -- "${POSITIONAL_ARGS[@]}"
 
 if [[ $# > 2 ]]
@@ -105,6 +106,8 @@ then
   echo "registry=${registry}"
   echo "creds=${creds}"
   echo "repo=${repo}"
+  echo "image regex = ${image_regex}"
+  echo "tag regex   = ${tag_regex}"
   echo "###"
 fi
 
@@ -113,7 +116,7 @@ auth_header="X-JFrog-Art-Api: ${creds}"
 
 registry_info=$(curl -sSL -H "${auth_header}" "https://${registry}/artifactory/api/docker/${repo}/v2/_catalog?n=5000")
 image_list=$(jq -r '.repositories[]' <<< "${registry_info}")
-images=$(grep --quiet --ignore-case --extended-regexp "${image_regex}" <<< "${image_list}")
+images=$(grep --ignore-case --extended-regexp -- "${image_regex}" <<< "${image_list}" || echo "")
 
 echo "done"
 if [[ -z "${images}" ]]
@@ -132,7 +135,7 @@ then
     if tags=$(curl -sSL -H "${auth_header}" \
       https://${registry}/artifactory/api/docker/${repo}/v2/${image}/tags/list?n=5000 \
       | jq -r '.tags[]' \
-      | grep -E "${tag_regex}")
+      | grep -E -- "${tag_regex}")
   then
     echo -n "   "
     for tag in ${tags}
