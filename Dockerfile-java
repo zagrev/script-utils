@@ -1,6 +1,5 @@
-# build steve's dev environment docker image
-FROM artifactory.scitec.com/mdpap/base-images/tier-1l/app-builder:v1.2.0
-#FROM artifactory.scitec.com/t1tan/viz/ioe/build-images/maven:0.1.0-rc20250415-e6d77e19
+# build a java dev environment docker image
+FROM  artifactory.scitec.com/ib/ironbank/redhat/ubi/ubi9:9.6
 
 ARG HOME
 ARG UID
@@ -9,23 +8,23 @@ ARG NAME
 
 ENTRYPOINT ["bash", "--login"]
 
-# mount subscription
+# mount repos and install packages
 RUN --mount=type=secret,id=artifactory_username \
     --mount=type=secret,id=artifactory_token \
-    rm -rf /etc/yum.repos.d/_*repo \
-    && echo -e "[mdpap-virtual-rpm] \n\
+    rm -rf /etc/yum.repos.d/*repo \
+    && echo -e "[mdpap] \n\
 name=MDPAP RPM \n\
-baseurl=https://artifactory.scitec.com/artifactory/mdpap-virtual-rpm \n\
+baseurl=https://artifactory.scitec.com/artifactory/mdpap-virtual-rpm-rhel9 \n\
 username=$(cat /run/secrets/artifactory_username) \n\
 password=$(cat /run/secrets/artifactory_token) \n\
 enabled=1 \n\
-" > /etc/yum.repos.d/mdpap-virtual-rpm.repo \
-  && dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm \
+" > /etc/yum.repos.d/mdpap.repo \
+  && dnf install -y --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm \
   && curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
       | tee /etc/yum.repos.d/nvidia-container-toolkit.repo \
   && dnf makecache -y \
-  && dnf install -y vim jq htop sudo ShellCheck nano bash-completion \
-      java-latest-openjdk-devel maven java-11-openjdk-devel java-17-openjdk-devel \
+  && dnf install -y vim jq htop sudo ShellCheck nano bash-completion wget \
+      maven java-17-openjdk-devel python3.12 \
       openldap-clients \
       nvidia-container-toolkit \
       bind-utils iputils hostname \
@@ -41,19 +40,14 @@ enabled=1 \n\
   && rm -rf /var/cache/yum \
   && rm -rf /var/cache/dnf 
 
-RUN true \
-  && alternatives --set java  java-latest-openjdk.x86_64 \
-  && alternatives --set javac java-latest-openjdk.x86_64
-
 # Add a user and a group. We don't give the user the AD ids because they are >1B and that causes the docker image to 
 # balloon to over 361GB is size. Something about a sparse file becomig non-sparse in Docker? I have lost the 
 # reference. Anyway, so the hack here is to re-write the UID and GID after the fact, and keeps that file small.
 RUN groupadd devs \
-    && useradd --home-dir "${HOME}" "${NAME}" \
+    && useradd --home-dir "${HOME}" --groups docker,wheel,devs "${NAME}" \
     && sed -i -r -e "/${NAME}/ s/x:1000/x:${UID}/" /etc/passwd \
     && sed -i -r -e "s/:1001:/:${GID}:/" /etc/passwd \
-    && sed -i -r -e "/${NAME}/ s/:1001:/:${GID}:/" /etc/group \
-    && usermod -aG docker,wheel,devs "${NAME}"
+    && sed -i -r -e "/${NAME}/ s/:1001:/:${GID}:/" /etc/group
 
 RUN sed -i -r -e "s/^%/#%/" /etc/sudoers \
     && echo '%wheel  ALL=(ALL)  NOPASSWD: ALL' >> /etc/sudoers
