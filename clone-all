@@ -4,6 +4,8 @@ set -e
 GIT_SERVER_URL=${GIT_SERVER_URL:-https://gitlab.scitec.com}
 GIT_GROUP=${GIT_GROUP:-MDPAP}
 GIT_PW=${GIT_PW:-$(<~/secrets/gitlab-token)}
+GIT_OPTS=
+GIT_MIRROR=
 
 DEST_DIR=${DEST_DIR:-.}
 PROJECT_MATCH_REGEX="${PROJECT_MATCH_REGEX:-*}"
@@ -94,6 +96,15 @@ function process_args
         shift
         ;;
 
+      --mirror)
+	GIT_MIRROR="--bare"
+	;;
+
+      --gitopts)
+	GIT_OPTS="$2"
+	shift
+	;;
+
       --help|-h|-?)
         usage
         should_exit=1
@@ -159,7 +170,7 @@ function process_project
 
         # if we cloned an empty repo, we can't do any git things
         # so we check is any files exist besides "." and ".."
-        if [[ $(ls -a | grep -v "\.git" | wc -l) -gt 2 ]]
+        if [[ -z "$GIT_MIRROR" && $(ls -a | grep -v "\.git" | wc -l) -gt 2 ]]
         then
           old_branch=$(git branch --show-current)
 
@@ -187,7 +198,7 @@ function process_project
     elif [[ ! -d "${project_slug}" ]]
     then
       echo -en "${COLOR_SUCCESS}${indent}Cloning into ${project_slug}...${COLOR_RESET}"
-      if git clone "${project_url}" >& /dev/null
+      if git clone ${GIT_OPTS} ${GIT_MIRROR} "${project_url}" >& /dev/null
       then
         echo -e "${COLOR_SUCCESS}done${COLOR_RESET}"
       else
