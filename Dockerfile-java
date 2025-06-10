@@ -1,5 +1,6 @@
 # build a java dev environment docker image
-FROM  artifactory.scitec.com/ib/ironbank/redhat/ubi/ubi9:9.6
+#FROM  artifactory.scitec.com/ib/ironbank/redhat/ubi/ubi9:9.6
+FROM registry1.dso.mil/ironbank/redhat/openjdk/openjdk17:1.17
 
 ARG HOME
 ARG UID
@@ -24,10 +25,11 @@ enabled=1 \n\
       | tee /etc/yum.repos.d/nvidia-container-toolkit.repo \
   && dnf makecache -y \
   && dnf install -y vim jq htop sudo ShellCheck nano bash-completion wget \
-      maven java-17-openjdk-devel python3.12 \
+      maven java-17-openjdk-devel python3.12 python3.12-pip \
       openldap-clients \
       nvidia-container-toolkit \
       bind-utils iputils hostname \
+      git \
   && echo "install YQ" \
   && wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq \
   && chmod +x /usr/bin/yq \
