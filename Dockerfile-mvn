@@ -1,6 +1,5 @@
 # build steve's dev environment docker image
 FROM artifactory.scitec.com/mdpap/base-images/tier-1l/app-builder:v1.2.0
-#FROM artifactory.scitec.com/t1tan/viz/ioe/build-images/maven:0.1.0-rc20250415-e6d77e19
 
 ARG HOME
 ARG UID

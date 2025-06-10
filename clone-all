@@ -4,8 +4,10 @@ set -e
 GIT_SERVER_URL=${GIT_SERVER_URL:-https://gitlab.scitec.com}
 GIT_GROUP=${GIT_GROUP:-MDPAP}
 GIT_PW=${GIT_PW:-$(<~/secrets/gitlab-token)}
+GIT_OPTS=
+GIT_MIRROR=
 
-DEST_DIR=${DEST_DIR:-~/scitec}
+DEST_DIR=${DEST_DIR:-.}
 PROJECT_MATCH_REGEX="${PROJECT_MATCH_REGEX:-*}"
 SKIP_EXISTING=N
 
@@ -13,6 +15,8 @@ COLOR_SUCCESS="\e[1;32m"
 COLOR_WARN="\e[33m"
 COLOR_ERROR="\e[31m"
 COLOR_RESET="\e[m"
+
+LOG=/tmp/clone-all-$(id -un)-$(date +%Y-%m-%d-%H-%M-%S).log
 
 verbosity=${VERBOSITY:-1}
 
@@ -94,6 +98,15 @@ function process_args
         shift
         ;;
 
+      --mirror)
+        GIT_MIRROR="--bare"
+        ;;
+
+      --gitopts)
+        GIT_OPTS="$2"
+        shift
+        ;;
+
       --help|-h|-?)
         usage
         should_exit=1
@@ -145,6 +158,13 @@ function process_project
   local project_branch=$(   jq -r '.default_branch'    <<< "${project_json}")
   local project_archived=$( jq -r '.archived'          <<< "${project_json}")
 
+  echo project_id=${project_id}
+  echo project_name=${project_name}
+  echo project_slug=${project_slug}
+  echo project_url=${project_url}
+  echo project_branch=${project_branch}
+  echo project_archived=${project_archived}
+
   if [[ ${project_archived} != true ]]
   then
 
@@ -159,25 +179,25 @@ function process_project
 
         # if we cloned an empty repo, we can't do any git things
         # so we check is any files exist besides "." and ".."
-        if [[ $(ls -a | grep -v "\.git" | wc -l) -gt 2 ]]
+        if [[ -z "$GIT_MIRROR" && $(ls -a | grep -v "\.git" | wc -l) -gt 2 ]]
         then
           old_branch=$(git branch --show-current)
 
-          if ! git checkout "${project_branch}" >& /dev/null
+          if ! git checkout "${project_branch}" >>& ${LOG}
           then
             echo -en "${COLOR_WARN} stashing changes...${COLOR_RESET}"
             git stash
-            git checkout "${project_branch}" >& /dev/null
+            git checkout "${project_branch}" >>& ${LOG}
           fi
 
-          if ! git pull >& /dev/null
+          if ! git pull >>& ${LOG}
           then
             echo -en "${COLOR_WARN} stashing changes...${COLOR_RESET}"
             git stash
-            git pull >& /dev/null
+            git pull >>& ${LOG}
           fi
 
-          git checkout "${old_branch}" >& /dev/null
+          git checkout "${old_branch}" >>& ${LOG}
 
         else
           echo -en "${COLOR_WARN}No files found, skipping ${COLOR_RESET}"
@@ -187,7 +207,7 @@ function process_project
     elif [[ ! -d "${project_slug}" ]]
     then
       echo -en "${COLOR_SUCCESS}${indent}Cloning into ${project_slug}...${COLOR_RESET}"
-      if git clone "${project_url}" >& /dev/null
+      if git clone ${GIT_OPTS} ${GIT_MIRROR} "${project_url}" >>& ${LOG}
       then
         echo -e "${COLOR_SUCCESS}done${COLOR_RESET}"
       else

@@ -12,7 +12,6 @@ then
   echo "Removed old ${docker_name}_${port}"
 fi
 
-
 docker run -d \
   --name "${docker_name}_${port}" \
   -p ${port}:5432 \
