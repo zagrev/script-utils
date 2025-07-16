@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+ldapsearch -LLL -x -d2 \
+	-H ldap://10.141.98.100/ \
+	-b"dc=scitec1,dc=local" \
+	-D sbetts@scitec.com \
+	-W \
+	"(&(objectclass=user)(!(objectclass=computer)))" \
+	-E pr=2147483647/noprompt 
+# 2147483647 = 0x7FFFFFFF aka MAX_INT32
