@@ -49,10 +49,10 @@ ${COLOR_RESET}"
 function usage
 {
   echo "Usage: $(basename ${BASH_SOURCE[0]})
-     --verbose, -v   increase the program logging"
+   --verbose, -v    increase the program logging"
   echo "   --dump-config    show the configuration and exit"
   echo "   --server         the location of the git server. Defaults to \"${GIT_SERVER_URL}\""
-  echo "   --group          the group to start, recuring through all the sub-groups and projects. Defaults to \"$GIT_GROUP}\""
+  echo "   --group          the group to start, recursing through all the sub-groups and projects. Defaults to \"${GIT_GROUP}\""
   echo "   --projects       a globbing expression to get/update only matching projects"
   echo "   --git-creds      the git credentials for the API. Defaults to the contents of \"~/secrets/gitlab-token\""
   echo "   --skip-existing  skips any project that already exists"
@@ -158,12 +158,12 @@ function process_project
   local project_branch=$(   jq -r '.default_branch'    <<< "${project_json}")
   local project_archived=$( jq -r '.archived'          <<< "${project_json}")
 
-  echo project_id=${project_id}
-  echo project_name=${project_name}
-  echo project_slug=${project_slug}
-  echo project_url=${project_url}
-  echo project_branch=${project_branch}
-  echo project_archived=${project_archived}
+  #echo project_id=${project_id}
+  #echo project_name=${project_name}
+  #echo project_slug=${project_slug}
+  #echo project_url=${project_url}
+  #echo project_branch=${project_branch}
+  #echo project_archived=${project_archived}
 
   if [[ ${project_archived} != true ]]
   then
@@ -183,21 +183,21 @@ function process_project
         then
           old_branch=$(git branch --show-current)
 
-          if ! git checkout "${project_branch}" >>& ${LOG}
+          if ! git checkout "${project_branch}" &>> ${LOG}
           then
             echo -en "${COLOR_WARN} stashing changes...${COLOR_RESET}"
             git stash
-            git checkout "${project_branch}" >>& ${LOG}
+            git checkout "${project_branch}" &>> ${LOG}
           fi
 
-          if ! git pull >>& ${LOG}
+          if ! git pull &>> ${LOG}
           then
             echo -en "${COLOR_WARN} stashing changes...${COLOR_RESET}"
             git stash
-            git pull >>& ${LOG}
+            git pull &>> ${LOG}
           fi
 
-          git checkout "${old_branch}" >>& ${LOG}
+          git checkout "${old_branch}" &>> ${LOG}
 
         else
           echo -en "${COLOR_WARN}No files found, skipping ${COLOR_RESET}"
@@ -207,7 +207,7 @@ function process_project
     elif [[ ! -d "${project_slug}" ]]
     then
       echo -en "${COLOR_SUCCESS}${indent}Cloning into ${project_slug}...${COLOR_RESET}"
-      if git clone ${GIT_OPTS} ${GIT_MIRROR} "${project_url}" >>& ${LOG}
+      if git clone ${GIT_OPTS} ${GIT_MIRROR} "${project_url}" &>> ${LOG}
       then
         echo -e "${COLOR_SUCCESS}done${COLOR_RESET}"
       else

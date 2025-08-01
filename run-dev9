@@ -4,45 +4,37 @@ set -e
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 PREFIX=${PREFIX:-srb}
 IMAGE=dev/${PREFIX}-build
-CONTAINER_NAME=${PREFIX}-java
+CONTAINER_NAME=${PREFIX}-dev
 
 # Variables Set via commandline flags ( -d,--daemon and -r,--refresh)
 INTERACTIVE_MODE=true
 REFRESH_CONTAINERS=false
 
-while [[ "$#" > 0 ]]
-do
-  case "$1" in
-    -d)
+while getopts "drv" opt; do
+  case $opt in
+    d)
       INTERACTIVE_MODE=false
       ;;
-    -r)
+    r)
       REFRESH_CONTAINERS=true
       ;;
-    --daemon)
-      INTERACTIVE_MODE=false
+    -)
+      case "${OPTARG}" in
+        daemon)
+          INTERACTIVE_MODE=false
+          ;;
+        refresh)
+          REFRESH_CONTAINERS=true
+          ;;
+      esac
       ;;
-    --refresh)
-      REFRESH_CONTAINERS=true
-      ;;
-    --build-opts)
-      BUILD_OPTS="${BUILD_OPTS} $2"
-      shift
-      ;;
-    --plain)
-      BUILD_OPTS="${BUILD_OPTS} --progress=plain"
-      ;;
-    -v)
+    v)
       VERBOSE=true
       ;;
-    -o)
-      BUILD_OPTS="${OPTARG}"
-      ;;
     *)
-      INTERACTIVE_MODE=false
-      ;;
+        INTERACTIVE_MODE=false
+        ;;
   esac
-  shift
 done
 
 # Helper Function: Checks if an environment variable is true
@@ -62,14 +54,13 @@ execIntoContainer() {
 buildImage() {
   [[ -n "$VERBOSE" ]] && echo "Building Docker Image"
   docker build \
-    -f "${SCRIPT_DIR}/Dockerfile-java" \
+    -f "${SCRIPT_DIR}/Dockerfile-dev9" \
     --build-arg "HOME=${HOME}" \
     --build-arg "NAME=$(id -un)" \
     --build-arg "UID=$(id -u)" \
     --build-arg "GID=$(id -g)" \
     --secret "id=artifactory_username,src=${HOME}/secrets/arti-user" \
     --secret "id=artifactory_token,src=${HOME}/secrets/arti-token" \
-    ${BUILD_OPTS} \
     -t "${IMAGE}" "${SCRIPT_DIR}"
 }
 
@@ -105,7 +96,7 @@ runContainer() {
     "${IMAGE}"
 
   [[ -z "$mode" ]] && execIntoContainer
-  set +x
+set +x
 }
 
 # if container already exists
@@ -116,20 +107,20 @@ then
 
   # if we want to refresh containers with latest images
   if is_true $REFRESH_CONTAINERS; then
-
+  
     [[ -n "$VERBOSE" ]] && echo "Refreshing Containers"
     docker stop "$CONTAINER_NAME" > /dev/null
     docker rm "$CONTAINER_NAME" > /dev/null
     buildImage
     runContainer
 
-    # if we simply want to exec into existing container
+  # if we simply want to exec into existing container
   else
     [[ -n "$VERBOSE" ]] && echo "Reusing existing container"
     execIntoContainer
   fi
 
-  # if container doesn't exist
+# if container doesn't exist
 else
   [[ -n "$VERBOSE" ]] && echo "Container ${CONTAINER_NAME} does not exist"
   buildImage

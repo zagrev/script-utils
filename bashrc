@@ -47,23 +47,28 @@ function _cd()
 {
   'cd' "$@"
 
-  export PS1='[\u@\h \w]\$ '
+  export PS1='[\u@\h ${currentDir}]\$ '
   if [[ -f /.dockerenv ]]
   then
     PS1="[\u@${TEXT_WARN}\h${TEXT_DEFAULT} \w]\$ "
   fi
-  PWD=$(echo "${PWD}" | sed -r \
-      -e 's_/home/sbetts/scitec/t1tan/viz/integrated-operations-environment_IOE_' \
+  currentDir=$(pwd | sed -r \
+      -e 's_/home/sbetts/scitec/t1tan/viz/integrated-operations-environment_ioe_' \
+      -e 's_~/scitec/t1tan/viz/integrated-operations-environment_ioe_' \
+      -e 's_/home/sbetts/git/com.outsideanalytics.ioe.workbench_gWorkbench_' \
+      -e 's_~/git/com.outsideanalytics.ioe.workbench_gWorkbench_' \
+      -e 's_com.outsideanalytics.ioe_c.o.i_' \
     )
 }
 alias cd="_cd"
+complete -d cd
 
 export PATH_ORIG=${PATH}
 export SCRIPT_DIR="${HOME}/scripts"
 export GCC_HOME="/usr/local/gcc-trunk"
 export MVN_DIR="${HOME}/foss/apache-maven-3.9.8/bin"
 
-export PATH="${SCRIPT_DIR}:${GCC_HOME}/bin:${MVN_DIR}:${PATH}"
+export PATH="${SCRIPT_DIR}:$HOME/.local/bin:${GCC_HOME}/bin:${MVN_DIR}:${PATH}"
 export LD_LIBRARY_PATH="${GCC_HOME}/lib64:${LD_LIBRARY_PATH}"
 
 # bash history
@@ -111,7 +116,7 @@ alias grh="git reset --hard"
 alias grs="git reset --soft"
 alias gf="git fetch --prune"
 alias gl='git log --pretty=format:"%h %ad %s" -n 1000 --date=short --graph'
-alias gd="git diff"
+alias gd="git diff --ignore-space-change"
 
 # Source Bash completion definitions for tab completion on commands
 if [ -f /etc/bash_completion ]; then
@@ -135,8 +140,7 @@ then
   __git_complete gd _git_diff
 fi
 
-alias python="python3.11"
-alias python3="python3.11"
+alias python="python3"
 
 function fdrm {
   if [[ -n "${1}" ]]
@@ -165,7 +169,7 @@ function fdrmi {
 }
 
 
-export NVM_DIR="$HOME/.nvm"
+export NVM_DIR="${HOME}/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 

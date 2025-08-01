@@ -1,6 +1,7 @@
 # build a java dev environment docker image
 #FROM  artifactory.scitec.com/ib/ironbank/redhat/ubi/ubi9:9.6
-FROM registry1.dso.mil/ironbank/redhat/openjdk/openjdk17:1.17
+#FROM registry1.dso.mil/ironbank/redhat/openjdk/openjdk17:1.17
+FROM artifactory.scitec.com/ib/ironbank/redhat/openjdk/openjdk17:1.17
 
 ARG HOME
 ARG UID
@@ -8,6 +9,7 @@ ARG GID
 ARG NAME
 
 ENTRYPOINT ["bash", "--login"]
+USER root
 
 # mount repos and install packages
 RUN --mount=type=secret,id=artifactory_username \
@@ -19,15 +21,18 @@ baseurl=https://artifactory.scitec.com/artifactory/mdpap-virtual-rpm-rhel9 \n\
 username=$(cat /run/secrets/artifactory_username) \n\
 password=$(cat /run/secrets/artifactory_token) \n\
 enabled=1 \n\
-" > /etc/yum.repos.d/mdpap.repo \
+" > /etc/yum.repos.d/mdpap.repo 
+
+RUN update-crypto-policies --set LEGACY
+
+RUN --mount=type=secret,id=artifactory_username \
+    --mount=type=secret,id=artifactory_token \
+  true \
   && dnf install -y --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm \
-  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
-      | tee /etc/yum.repos.d/nvidia-container-toolkit.repo \
   && dnf makecache -y \
   && dnf install -y vim jq htop sudo ShellCheck nano bash-completion wget \
-      maven java-17-openjdk-devel python3.12 python3.12-pip \
+      java-17-openjdk-devel python3.12 python3.12-pip \
       openldap-clients \
-      nvidia-container-toolkit \
       bind-utils iputils hostname \
       git \
   && echo "install YQ" \
@@ -41,6 +46,11 @@ enabled=1 \n\
   && dnf clean all \
   && rm -rf /var/cache/yum \
   && rm -rf /var/cache/dnf 
+# && curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+#      | tee /etc/yum.repos.d/nvidia-container-toolkit.repo \
+#      nvidia-container-toolkit \
+
+RUN pip install -y pipenv pyxtuml
 
 # Add a user and a group. We don't give the user the AD ids because they are >1B and that causes the docker image to 
 # balloon to over 361GB is size. Something about a sparse file becomig non-sparse in Docker? I have lost the 
