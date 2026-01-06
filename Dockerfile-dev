@@ -1,5 +1,5 @@
 # build steve's dev environment docker image
-FROM artifactory.scitec.com/mdpap/base-images/tier-1l/app-builder:v1.2.0
+FROM artifactory.scitec.com/scitec-docker-local/fce-build-base-cpp:0.0.15
 #FROM artifactory.scitec.com/t1tan/viz/ioe/build-images/maven:0.1.0-rc20250415-e6d77e19
 
 ARG HOME
@@ -8,6 +8,8 @@ ARG GID
 ARG NAME
 
 ENTRYPOINT ["bash", "--login"]
+
+USER root
 
 # mount subscription
 RUN --mount=type=secret,id=artifactory_username \
@@ -18,30 +20,38 @@ name=MDPAP RPM \n\
 baseurl=https://artifactory.scitec.com/artifactory/mdpap-virtual-rpm \n\
 username=$(cat /run/secrets/artifactory_username) \n\
 password=$(cat /run/secrets/artifactory_token) \n\
-enabled=1 \n\
+enabled=0 \n\
 " > /etc/yum.repos.d/mdpap-virtual-rpm.repo \
-  && dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm \
+  && rpm --import https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9 \
+  && dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm \
   && curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
       | tee /etc/yum.repos.d/nvidia-container-toolkit.repo \
   && dnf makecache -y \
-  && dnf install -y vim jq htop sudo ShellCheck nano bash-completion \
+  && echo "Cache created"
+
+RUN --mount=type=secret,id=artifactory_username \
+    --mount=type=secret,id=artifactory_token \
+    true \
+  && dnf install -y vim jq sudo ShellCheck nano bash-completion \
       java-latest-openjdk-devel maven java-11-openjdk-devel java-17-openjdk-devel \
       java-21-openjdk-devel \
+      python3.13 \
       openldap-clients \
       nvidia-container-toolkit \
       bind-utils iputils hostname \
-      ant \
   && echo "install YQ" \
   && wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq \
   && chmod +x /usr/bin/yq \
+  && dnf clean all \
+  && rm -rf /var/cache/yum \
+  && rm -rf /var/cache/dnf 
+
+RUN true \
   && echo "Install Docker" \
   && dnf remove -y podman \
   && groupadd docker -g 972 \
   && dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo \
-  && dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
-  && dnf clean all \
-  && rm -rf /var/cache/yum \
-  && rm -rf /var/cache/dnf 
+  && dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 #RUN true \
 #  && alternatives --set java  java-latest-openjdk.x86_64 \
@@ -52,14 +62,17 @@ enabled=1 \n\
 # reference. Anyway, so the hack here is to re-write the UID and GID after the fact, and keeps that file small.
 RUN groupadd devs \
     && useradd --home-dir "${HOME}" "${NAME}" \
-    && sed -i -r -e "/${NAME}/ s/x:1000/x:${UID}/" /etc/passwd \
+    && sed -i -r -e "/${NAME}/ s/x:[0-9]+:[0-9]+/x:${UID}:${GID}/" /etc/passwd \
     && sed -i -r -e "s/:1001:/:${GID}:/" /etc/passwd \
-    && sed -i -r -e "/${NAME}/ s/:1001:/:${GID}:/" /etc/group \
+    && sed -i -r -e "/${NAME}/ s/:[0-9]+:/:${GID}:/" /etc/group \
     && usermod -aG docker,wheel,devs "${NAME}"
 
 RUN sed -i -r -e "s/^%/#%/" /etc/sudoers \
     && echo '%wheel  ALL=(ALL)  NOPASSWD: ALL' >> /etc/sudoers
 
 WORKDIR  "${HOME}"
-USER     "${NAME}"
 
+RUN dnf makecache \
+  && dnf install -y rpm-build 
+
+USER     "${NAME}"

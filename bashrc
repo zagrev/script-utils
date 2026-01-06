@@ -50,7 +50,7 @@ function _cd()
   export PS1='[\u@\h ${currentDir}]\$ '
   if [[ -f /.dockerenv ]]
   then
-    PS1="[\u@${TEXT_WARN}\h${TEXT_DEFAULT} \w]\$ "
+    PS1="[\u@\[${TEXT_WARN}\]\h\[${TEXT_DEFAULT}\] \w]\$ "
   fi
   currentDir=$(pwd | sed -r \
       -e 's_/home/sbetts/scitec/t1tan/viz/integrated-operations-environment_ioe_' \
@@ -65,11 +65,8 @@ complete -d cd
 
 export PATH_ORIG=${PATH}
 export SCRIPT_DIR="${HOME}/scripts"
-export GCC_HOME="/usr/local/gcc-trunk"
-export MVN_DIR="${HOME}/foss/apache-maven-3.9.8/bin"
-
-export PATH="${SCRIPT_DIR}:$HOME/.local/bin:${GCC_HOME}/bin:${MVN_DIR}:${PATH}"
-export LD_LIBRARY_PATH="${GCC_HOME}/lib64:${LD_LIBRARY_PATH}"
+export MVN_DIR="${HOME}/foss/apache-maven-3.9.11/bin"
+export PATH="${SCRIPT_DIR}:$HOME/.local/bin:${MVN_DIR}:${PATH}"
 
 # bash history
 export HISTTIMEFORMAT="%F %T "
@@ -176,3 +173,7 @@ export NVM_DIR="${HOME}/.nvm"
 
 # Load Angular CLI autocompletion.
 source <(ng completion script)
+source < ~/.kubectl-completions
+alias k="kubectl"
+
+umask 022

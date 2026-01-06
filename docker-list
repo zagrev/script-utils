@@ -40,6 +40,17 @@ then
   fi
 fi
 
+usage()
+{
+  echo -e "Usage: $0 -r/--registry SERVER # set the registry server to SERVER. Defaults to $REGISTRY"
+  echo -e "          -k/--key API_KEY     # use the given API_KEY to access the server"
+  echo -e "          --repo NAME          # search the given repository. Defaults to $REPO_NAME"
+  echo -e "          -e                   # dump the environment before running"
+  echo -e "          --help               # show this message"
+  echo -e "          [image regex]        # a regex for matching the docker image name. Defaults to '.*'"
+  echo -e "          [version regex]      # a regex for matching the version number. Defaults to '.*'"
+}
+
 # parse arguments - command line args override environment variables
 POSITIONAL_ARGS=()
 
@@ -64,6 +75,10 @@ do
     ;;
   -e)
     dump_env=true
+    ;;
+  --help)
+    usage
+    exit 0
     ;;
   -*)
     echo "Unknown option: $1"

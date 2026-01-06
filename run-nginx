@@ -19,7 +19,7 @@ while [[ $port -le $port_limit ]] \
   -p ${port}:80 \
   -v .:/usr/share/nginx/html \
   -v "${script_dir}/browse:/etc/nginx/conf.d/16-browse-on.conf" \
-  artifactory.scitec.com/scitec-docker-upstream/nginx:1.25.5 \
+  artifactory.scitec.com/scitec-docker-upstream/nginx:1.29.0 \
   >& /dev/null
 do
   (( port += 1 ))
