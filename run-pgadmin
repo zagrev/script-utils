@@ -17,7 +17,7 @@ docker run -d \
   -e PGADMIN_DEFAULT_EMAIL=bob@bob.com \
   -e PGADMIN_DEFAULT_PASSWORD=bob \
   -v $HOME/pgadmin:/var/lib/pgadmin \
-  artifactory.scitec.com/docker-virtual/dpage/pgadmin4 >&/dev/null
+  artifactory.scitec.com/docker-virtual/dpage/pgadmin4:9.11 >&/dev/null
 
 echo "Running ${docker_name} on port $port..."
 

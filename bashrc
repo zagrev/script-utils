@@ -57,6 +57,7 @@ function _cd()
     )
 }
 alias cd="_cd"
+cd .
 
 export PATH_ORIG=${PATH}
 export SCRIPT_DIR="${HOME}/scripts"
