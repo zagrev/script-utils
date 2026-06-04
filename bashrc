@@ -52,6 +52,11 @@ function _cd()
   then
     PS1="[\u@\[${TEXT_WARN}\]\h\[${TEXT_DEFAULT}\] \w]\$ "
   fi
+  if [[ -n "${VIRTUAL_ENV_PROMPT}" ]]
+  then
+    PS1="(\[${TEXT_WARN}\]${VIRTUAL_ENV_PROMPT})\[${TEXT_DEFAULT}\] ${PS1}"
+  fi
+
   currentDir=$(pwd | sed -r \
       -e 's_/home/sbetts/scitec/t1tan/viz/integrated-operations-environment_ioe_' \
       -e 's_~/scitec/t1tan/viz/integrated-operations-environment_ioe_' \
@@ -66,7 +71,11 @@ complete -d cd
 export PATH_ORIG=${PATH}
 export SCRIPT_DIR="${HOME}/scripts"
 export MVN_DIR="${HOME}/foss/apache-maven-3.9.11/bin"
-export PATH="${SCRIPT_DIR}:$HOME/.local/bin:${MVN_DIR}:${PATH}"
+#export JDK_DIR="${HOME}/development/jdk-24"
+export JDK_DIR="/usr/lib/jvm/java-25-openjdk"
+export ANT_HOME="${HOME}/development/apache-ant-1.10.15/"
+export GRADLE_HOME="${HOME}/development/gradle-8.14.3/"
+export PATH="${SCRIPT_DIR}:${HOME}/.local/bin:${GRADLE_HOME}/bin:${JDK_DIR}/bin:${MVN_DIR}:${ANT_HOME}/bin:${PATH}"
 
 # bash history
 export HISTTIMEFORMAT="%F %T "
@@ -95,12 +104,13 @@ alias a="ansible"
 alias ap="ansible-playbook"
 
 # docker
-alias dps='docker ps --all --format="table {{.Names}}\t{{.Ports}}\t{{.Status}}"'
+alias dps='docker ps --all --format="table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
 alias drm=fdrm
 alias drmi=fdrmi
 alias dim='docker images --format="table {{.Repository}}:{{.Tag}}\t{{.CreatedSince}}\t{{.Size}}" --filter "dangling=false" | tail -n +2 | sort'
 alias dip="docker inspect --format='{{range.NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "
 alias dc="docker compose"
+alias dcps='docker compose ps --all --format="table {{.Names}}\t{{.Ports}}\t{{.Status}}"'
 
 # git
 alias gst="git status"
@@ -173,7 +183,11 @@ export NVM_DIR="${HOME}/.nvm"
 
 # Load Angular CLI autocompletion.
 source <(ng completion script)
-source < ~/.kubectl-completions
+source ~/.kubectl-completions
 alias k="kubectl"
 
 umask 022
+unset JAVA_HOME
+alias gcil="gitlab-ci-local --mount-cache=true --volume /root/.m2:/root/.m2"
+export ARTIFACTORY_USER=$(<~/secrets/arti-user) ARTIFACTORY_ACCESS_TOKEN=$(<~/secrets/arti-token)
+export creds=$(<~/secrets/arti-user):$(<~/secrets/arti-token)

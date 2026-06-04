@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+set -e
+
+#
+#  docker-list [ image-regex [ tag-regex ] ]
+#
+#  Find all the docker images that match the arguments
+#
+#     image-regex:  A regular expression for which images to list. Defaults to ".*"
+#     tag-regex:    A regular expression for which tags to list. Defaults to ".*"
+#
+#  Environment variables:
+#
+#     API_KEY   The JFrog API key (X-JFrog-Art-Api). Defaults to the contents of $HOME/secrets/arti-token.
+#     REGISTRY  The server name or ip. Defaults to artifactory.scitec.com
+#     REPO_NAME The name of the docker registry repository. Defaults to 'mdpap'.
+#
+# curl -X GET https://myregistry:5000/v2/_catalog
+# curl -X GET https://myregistry:5000/v2/ubuntu/tags/list
+
+usage()
+{
+  echo -e "Usage: $0"
+  echo -e "          -r/--registry SERVER # set the registry server to SERVER. Defaults to $REGISTRY"
+  echo -e "          -k/--key API_KEY     # use the given API_KEY to access the server"
+  echo -e "          --repo NAME          # search the given repository. Defaults to $REPO_NAME"
+  echo -e "          -e                   # dump the environment before running"
+  echo -e "          -d                   # debug info on connections"
+  echo -e "          --help               # show this message"
+  echo -e "          [image regex]        # a regex for matching the docker image name. Defaults to '.*'"
+  echo -e "          [version regex]      # a regex for matching the version number. Defaults to '.*'"
+}
+
+error()
+{
+  echo ERROR "$@"
+}
+#trap 'error ${LINENO} ${FUNCNAME-main context} $?' ERR
+
+# set default values - environment variables override defaults
+REGISTRY=${REGISTRY:-artifactory.scitec.com}
+REPO_NAME=${REPO_NAME:-mdpap}
+DEBUG=
+
+# parse arguments - command line args override environment variables
+POSITIONAL_ARGS=()
+
+done=
+while [[ $# -gt 0 && -z "${done}" ]]
+do
+  case $1 in
+    -r|--registry)
+      REGISTRY="$2"
+      shift
+      ;;
+    -k|--key)
+      API_KEY="$2"
+      shift
+      ;;
+    --repo)
+      REPO_NAME="$2"
+      shift
+      ;;
+    --)
+      done=yes
+      ;;
+    -d)
+      DEBUG=true
+      ;;
+    -e)
+      dump_env=true
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "Unknown option: $1"
+      exit 2
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      ;;
+  esac
+  shift # past argument
+done
+
+# set all the remaining args to new numbers
+POSITIONAL_ARGS+=("$@") # save left over args
+set -- "${POSITIONAL_ARGS[@]}"
+
+if [[ $# > 2 ]]
+then
+  echo "ERROR: Too many arguments"
+  usage
+  exit 3
+fi
+
+# Get API key from normal locations - whatever that is
+if [[ -z "${API_KEY}" ]]
+then
+  API_KEY=$(jq '.auths."'${REGISTRY}'".auth' ${HOME}/.docker/config.json)
+  if [[ -z "${API_KEY}" ]]
+  then
+    if [[ -f "${HOME}/secrets/arti-token" ]]
+    then
+      API_KEY=$(cat "${HOME}/secrets/arti-token")
+    else
+      echo "Missing API_KEY"
+      exit 1
+    fi
+  fi
+fi
+
+# set the variables that will be used in the main portion of the script
+image_regex=${1:-.*}
+tag_regex=${2:-.*}
+
+creds=${API_KEY}
+registry=${REGISTRY}
+repo=${REPO_NAME}
+
+if [[ -z "${creds}" ]]
+then
+  echo "No credentials found. Please log into "${registry}" before using this script"
+  exit 1
+fi
+
+# dump environment if requested
+if [[ -n "${dump_env}" ]]
+then
+  echo "registry    = ${registry}"
+  echo "creds       = ${creds}"
+  echo "repo        = ${repo}"
+  echo "image regex = ${image_regex}"
+  echo "tag regex   = ${tag_regex}"
+  echo "###"
+fi
+
+echo -en "Retrieving images from ${registry}..."
+image_count=0
+image_list=
+auth_header="Authorization: basic ${creds}"
+base_query="https://${registry}"
+next_link="/v2/_catalog?n=500"
+
+[[ -n "${DEBUG}" ]] && echo -e "\nRetrieving from ${base_query}${next_link}"
+while [[ -n "${next_link}" ]] \
+  && tmp_registry_list=$(curl -fsSL --include --header "${auth_header}" "${base_query}${next_link}" 2>/dev/null)
+do
+
+  next_link=$( grep -i "link: " <<< "${tmp_registry_list}" \
+               | grep -i 'rel="next"' \
+               | sed -r -e 's/^[^<]*<([^>]+)>.*$/\1/' )
+
+  image_list="${image_list}\n$( \
+                   sed -r -e '1,/^\r$/d' <<< "${tmp_registry_list}"  \
+                   | jq -r '.repositories[]')"
+
+  image_count=${#image_list}
+  [[ -n "${DEBUG}" ]] \
+    && echo -e "Next url = ${next_link}; image count = ${image_count}"
+  (( image_count % 10000 == 0 )) && echo -en "${image_count} "
+done
+
+echo -e "$(printf "%'d" $image_count) images."
+
+images=$(grep --ignore-case --extended-regexp -- "${image_regex}" <<< "${image_list}" || echo "")
+[[ -n "${DEBUG}" ]] && echo -e "matching tags: ${#images}"
+
+if [[ -z "${images}" ]]
+then
+  echo "ERROR: No matching images found for \"${image_regex}\""
+  exit 1
+fi
+
+[[ -n "${DEBUG}" ]] && echo "Received from images: ${images:0:70}"
+if [[ -n "${images}" ]]
+then
+
+  for image in ${images}
+  do
+    echo "#> ${image}"
+
+    tags=
+    next_link="/v2/${image}/tags/list?n=500"
+    # url encode the image name
+    #next_link="/v2/$( printf "${image}" | jq -sRr @uri )/tags/list?n=500"
+    #next_link="/v2/<${image}>/tags/list?n=500"
+    [[ -n "${DEBUG}" ]] && echo -e "Getting tags from ${base_query}${next_link}"
+    while [[ -n "${next_link}" ]]
+    do
+      if response=$(curl -fsSLi --header "${auth_header}" "${base_query}${next_link}" 2>/dev/null)
+      then
+        [[ -n "${DEBUG}" ]] && echo "Received from tags: $(echo "${response}"|sed -r -e '/^\r$/,$d')"
+
+        next_link=$( \
+          echo "${response}" \
+          | grep -i "link: " \
+          | grep -i 'rel="next"' \
+          | sed -r -e 's/^[^<]*<([^>]+)>.*$/\1/' \
+          )
+
+        tags="${tags}\n$( \
+          echo "${response}" \
+          | sed '1,/^\r$/d' \
+          | jq -r '.tags[]' \
+          | grep -E -- "${tag_regex}" \
+          )"
+      else
+        next_link=
+      fi
+    done
+
+    if [[ -n "${tags}" ]]
+    then
+      echo -n ' #> '
+      for tag in ${tags}
+      do
+        echo -n " ${tag},"
+      done
+    else
+      echo "   No matching tags"
+    fi
+    echo
+  done
+else
+  echo "  No matching docker images"
+fi
